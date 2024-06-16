@@ -20,8 +20,6 @@ services:
       TEST_PASSWORD: ${TEST_PASSWORD}
     volumes:
       - ./logs/:/app/logs/
-#      - ./frontend/app_pages:/app/app_pages # mount the app folder to track changes
-#      - ./frontend/postprocessing:/app/postprocessing # mount the app folder to track changes
     networks:
       - mynetwork
 
@@ -64,7 +62,7 @@ services:
       ORACLE_USER: ${ORACLE_USER}
       ORACLE_PASSWORD: ${ORACLE_PASSWORD}
     volumes:
-      - ./backend/:/code/backend/ # mount the app folder to track changes
+#      - ./backend/:/code/backend/ # mount the app folder to track changes
       - ./logs/:/code/logs/
     networks:
       - mynetwork
