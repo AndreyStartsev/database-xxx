@@ -82,8 +82,11 @@ API будет доступно по адресу http://localhost где мож
 
 Скриншоты API:
 <details>
+
 ![API](./images/api1.png)
+
 ![API](./images/api2.png)
+
 </details>
 
 ## UI
@@ -97,6 +100,9 @@ UI будет доступен по адресу http://localhost:8505
 Скриншоты UI:
 
 <details>
+
 ![UI](./images/ui2.png)
+
 ![UI](./images/ui1.png)
+
 </details>
