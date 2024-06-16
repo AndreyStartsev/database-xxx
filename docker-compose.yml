@@ -13,7 +13,6 @@ services:
       PYTHONUNBUFFERED: 1
       WORKERS: 2
       PORT: 8501
-      SPACY_MODEL: ru_core_news_sm
       API_PORT: 8000
       API_HOST: backend
       API_KEY: ${API_APP_KEY}
@@ -51,7 +50,7 @@ services:
       API_DB_KEY: ${API_DB_KEY}
       SPACY_MODEL: ru_core_news_md
       MODELS_PATH: /code/backend/checkpoints/
-      BEST_MODEL: model_018
+      BEST_MODEL: ${BEST_MODEL}
       LOGFILE: /code/logs/logfile.json
       ROOT: /code/backend/
       CONNECT_TO_DB: ${CONNECT_TO_DB}
