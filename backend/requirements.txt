@@ -1,0 +1,34 @@
+# FOR API
+fastapi~=0.104.1
+uvicorn~=0.24.0
+python-multipart~=0.0.6
+python-dotenv==1.0.0
+
+# GENERAL
+numpy~=1.26.0
+# pandas==2.1.1
+tqdm~=4.66.1
+
+# FOR NER
+requests==2.31.0
+bs4~=0.0.2
+lxml~=5.1.0
+spacy~=3.7.0
+pymorphy3~=1.2.1
+# fuzzywuzzy~=0.18.0
+python-Levenshtein~=0.23.0
+# natasha
+
+# FOR LOGGING
+loguru==0.7.0
+
+# FOR DB
+asyncpg==0.29.0
+sqlalchemy==2.0.23
+
+# OTHER
+json2table==1.1.5
+configparser==5.3.0
+# memory_profiler==0.61.0
+pandas
+mimesis

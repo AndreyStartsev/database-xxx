@@ -1,0 +1,16 @@
+checkpoints/model_005/
+checkpoints/model_006/
+checkpoints/model_007/
+checkpoints/model_008/
+checkpoints/model_009/
+checkpoints/model_010/
+checkpoints/model_011/
+checkpoints/model_012/
+checkpoints/model_013/
+server-info
+
+*/test.html
+medxxx.tar
+*.tar
+
+/frontend/old/

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <link href="/static/favicon.ico" rel="shortcut icon">
+    <meta charset="UTF-8">
+    <title>Swagger API Documentation</title>
+    <style>
+         body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #001131; /* Dark background color */
+            color: #ccc; /* Text color for dark mode */
+        }
+
+        .container {
+            width: 80%;
+            margin: 100px auto;
+        }
+
+        h1, h2 {
+            color: #ccc; /* Heading text color in dark mode */
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            margin-bottom: 10px;
+        }
+
+        .parameter {
+            background-color: rgba(52, 73, 94, 0.3); /* Semi-transparent dark blue background */
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 5px;
+            border: 1px solid #ccc; /* Reduced contrast border */
+        }
+
+        .parameter strong {
+            color: #3498db; /* Adjusted color for strong elements */
+        }
+
+        /* Define the styles for the left panel */
+        .upper-panel {
+            width: 100%;
+            background-color: #34495e; /* Dark blue background color */
+            color: #fff; /* White text color */
+            padding: 20px;
+            box-sizing: border-box;
+            position: fixed; /* Make the header fixed */
+            top: 0; /* Stick it to the top */
+            left: 0; /* Align to the left */
+        }
+
+        /* Define the styles for the rounded semi-transparent rectangle */
+        .lightblue-rectangle {
+            width: 128px; /* Adjust the width of the rectangle as needed */
+            height: 36px; /* Adjust the height of the rectangle as needed */
+            display: inline-block;
+            padding: 5px 10px;
+            background-color: rgba(52, 73, 94, 0.7); /* Adjusted dark blue background color */
+            color: #fff; /* White text color */
+            border-radius: 20px; /* Rounded corners */
+        }
+
+        /* Define styles for the link and icon */
+        .link-with-icon {
+            text-decoration: none; /* Remove default underline */
+            color: #3498db; /* Adjusted link text color for dark mode */
+        }
+
+        .link-icon {
+            width: 32px; /* Adjust icon width as needed */
+            height: 32px; /* Adjust icon height as needed */
+            margin-right: 5px; /* Spacing between icon and link text */
+        }
+    </style>
+
+</head>
+<body>
+    <div class="upper-panel">
+     <div class="lightblue-rectangle">
+            <a href="/docs" class="link-with-icon">
+                <img src="/static/icon1.png" alt="Swagger" class="link-icon"> Swagger
+            </a>
+        </div>
+
+        <div class="lightblue-rectangle">
+            <a href="/redoc" class="link-with-icon">
+                <img src="/static/icon2.png" alt="Redoc" class="link-icon"> Redoc
+            </a>
+        </div>
+
+        <div class="lightblue-rectangle">
+            <a id="streamlit-link" class="link-with-icon">
+                <img src="/static/icon3.png" alt="Demo" class="link-icon"> Streamlit
+            </a>
+        </div>
+
+        <script>
+<!--            const hostAddress = "localhost:8505"; // Replace with your desired host address-->
+            const hostAddress = "35.95.27.66:8505"; // Replace with your desired host address
+            const streamlitLink = document.getElementById("streamlit-link");
+            streamlitLink.href = `http://${hostAddress}`;
+        </script>
+    </div>
+    <div class="container">
+    <img src="/static/logo1.png" alt="API Logo" style="width: 100px;">
+
+    <h2>1. Точка доступа для профайлинга таблиц</h2>
+    <p>Полный профайлинг всех таблиц в базе данных, определяющий, содержат ли таблицы персональные данные.</p>
+    <p>⚠️ Важно: При отправке запроса необходимо указать ваше значение ключа "xxx" в headers запроса</p>
+    <ul>
+        <li><strong>Тело запроса:</strong>
+            <ul>
+                <li class="parameter"><strong>src_table_name</strong>: Название таблицы для анализа.</li>
+                <li class="parameter"><strong>analysis_type</strong>: Тип анализа, который необходимо выполнить (column, row).</li>
+                <li class="parameter"><strong>logfile</strong>: Название файла журнала для использования.</li>
+                <li class="parameter"><strong>dest_table_prefix</strong>: Префикс для таблицы с данными анализа.</li>
+                <li class="parameter"><strong>result_folder</strong>: Папка для сохранения CSV-файла профиля.</li>
+            </ul>
+        </li>
+        <li><strong>Ответ:</strong>
+            <ul>
+                <li class="parameter"><strong>profile</strong>: Профиль каждой таблицы в базе данных с указанием типов данных и наличия персональных данных.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h2>2. Точка доступа для анонимизации таблиц</h2>
+    <p>Запуск задачи анонимизации таблицы, создающей новую таблицу без персональных данных.</p>
+    <p>⚠️ Важно: При отправке запроса необходимо указать ваше значение ключа "xxx" в headers запроса</p>
+    <ul>
+        <li><strong>Тело запроса:</strong>
+            <ul>
+                <li class="parameter"><strong>entries_limit</strong>: Лимит записей для анонимизации.</li>
+                <li class="parameter"><strong>src_table_name</strong>: Название таблицы для анонимизации.</li>
+                <li class="parameter"><strong>dest_table_prefix</strong>: Префикс для таблицы с анонимизированными данными.</li>
+                <li class="parameter"><strong>dest_type</strong>: Тип файла назначения (csv или db).</li>
+                <li class="parameter"><strong>dest_csv_file_folder</strong>: Папка для сохранения исходного CSV-файла.</li>
+                <li class="parameter"><strong>logfile</strong>: Название файла журнала для использования.</li>
+                <li class="parameter"><strong>drop_existing_table</strong>: Удалять ли существующую таблицу.</li>
+                <li class="parameter"><strong>columns</strong>: Колонки для анонимизации.</li>
+                <li class="parameter"><strong>strategy_by_column</strong>: Стратегия анонимизации по колонкам.</li>
+            </ul>
+        </li>
+        <li><strong>Ответ:</strong>
+            <ul>
+                <li class="parameter"><strong>anonymized_table</strong>: Новая таблица с анонимизированными данными.</li>
+            </ul>
+        </li>
+    </ul>
+
+        <h2>2. Служебные точки доступа</h2>
+        <p>Служебные точки доступа для проверки работоспособности сервиса.</p>
+        <ul>
+            <li><strong>GET /model_status</strong>: Возвращает статус модели NER.</li>
+            <li><strong>GET /health</strong>: Возвращает "ok".</li>
+            <li><strong>GET /</strong>: Возвращает главную страницу.</li>
+        </ul>
+    </div>
+</body>
+</html>

@@ -1,0 +1,103 @@
+version: "3.9"
+services:
+  frontend:
+    image: demo-frontend
+    container_name: demo-frontend
+    build: ./demo
+    restart: on-failure
+    ports:
+      - "8505:8501"
+    expose:
+      - "8501"
+    environment:
+      PYTHONUNBUFFERED: 1
+      WORKERS: 2
+      PORT: 8501
+      SPACY_MODEL: ru_core_news_sm
+      API_PORT: 8000
+      API_HOST: backend
+      API_KEY: ${API_APP_KEY}
+      TEST_USER: ${TEST_USER}
+      TEST_PASSWORD: ${TEST_PASSWORD}
+    volumes:
+      - ./logs/:/app/logs/
+#      - ./frontend/app_pages:/app/app_pages # mount the app folder to track changes
+#      - ./frontend/postprocessing:/app/postprocessing # mount the app folder to track changes
+    networks:
+      - mynetwork
+
+  backend:
+    image: demo-api
+    container_name: demo-api
+    build: ./backend
+    command: ["uvicorn", "backend.main:app",
+              "--port", "8000",
+              "--host", "0.0.0.0",
+              "--workers", "4",
+              "--loop", "asyncio",
+              "--reload"]
+    deploy:
+      resources:
+        limits:
+          memory: 7G
+    restart: on-failure
+    ports:
+      - "80:8000"
+    expose:
+      - "8000"
+    environment:
+      API_USER_KEY: ${API_USER_KEY}
+      API_APP_KEY: ${API_APP_KEY}
+      API_DB_KEY: ${API_DB_KEY}
+      SPACY_MODEL: ru_core_news_md
+      MODELS_PATH: /code/backend/checkpoints/
+      BEST_MODEL: model_018
+      LOGFILE: /code/logs/logfile.json
+      ROOT: /code/backend/
+      CONNECT_TO_DB: ${CONNECT_TO_DB}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: 5432
+      DEBUG: ${DEBUG}
+      ORACLE_DNS: ${ORACLE_DNS}
+      ORACLE_USER: ${ORACLE_USER}
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD}
+    volumes:
+      - ./backend/:/code/backend/ # mount the app folder to track changes
+      - ./logs/:/code/logs/
+    networks:
+      - mynetwork
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://backend:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+
+  postgres_db:
+    image: "postgres:14"
+    container_name: demo-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./init-scripts:/docker-entrypoint-initdb.d # Initialization scripts
+      - ./logs/:/var/log/postgresql # Logs
+      - ./pgdata:/var/lib/postgresql/data # Persistent data
+    networks:
+      - mynetwork
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "${DB_NAME}", "-U", "${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+networks:
+  mynetwork:
+    driver: bridge
