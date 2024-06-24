@@ -105,8 +105,10 @@ def fetch_random_sample(table_name: str, limit: int) -> pd.DataFrame:
 
 
 def main():
-    col1, col2 = st.columns((6, 4))
     table_names, tables_anon = get_table_names()
+    with st.expander("База данных содержит следующие анонимизированные таблицы"):
+        st.write(tables_anon)
+    col1, col2 = st.columns((6, 4))
 
     with col1:
         table_name = st.selectbox("Enter table name", table_names, index=0)
@@ -135,7 +137,7 @@ def main():
 
         col1, col2 = st.columns((6, 4))
         with col1:
-            if "config" in st.session_state.keys():
+            if "config" in st.session_state.keys() and is_anon:
                 st.write(st.session_state["config"][table_name])
         with col2:
             sorted_cols = [col for col in df.columns if col in anon_df.columns]

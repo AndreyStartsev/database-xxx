@@ -2,6 +2,12 @@
 
 ![schema](./images/schema1.png)
 
+## Демонстрация работы
+
+Видео демонстрация работы проекта:
+
+[![IMAGE ALT TEXT HERE](https://img.youtube.com/vi/c3I-yBiqTe0/0.jpg)](https://www.youtube.com/watch?v=c3I-yBiqTe0)
+
 ## Профайлинг таблиц базы данных
 
 Каждая таблица анализируется на предмет наличия персональных данных. 
