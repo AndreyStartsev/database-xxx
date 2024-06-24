@@ -83,6 +83,36 @@
 - установить Docker и Docker-compose
 - склонировать репозиторий
 - заполнить файл .env.example и переименовать его в .env
+
+```bash
+# [FOR ML] Set ML model path, set to ru_core_news_md for default spacy model
+BEST_MODEL=
+
+# [FOR TEST DB] Set DB credentials
+DB_PASSWORD=
+DB_USER=
+DB_NAME=
+DB_HOST=
+
+# [FOR BACKEND] Set user key == UI app password (to use in headers as a value of api key: xxx)
+API_USER_KEY=
+
+# [FOR BACKEND] Set admin keys for API and DB
+API_APP_KEY=
+API_DB_KEY=
+
+# [FOR BACKEND] Enable or disable connection to DB (disable if you want to connect to external DB)
+CONNECT_TO_DB=0
+
+# [FOR BACKEND] Set debug mode
+DEBUG=1
+
+# [FOR UI] Set user and password
+TEST_USER=
+TEST_PASSWORD=
+
+```
+
 - выполнить команду `docker-compose up --build`
 
 
