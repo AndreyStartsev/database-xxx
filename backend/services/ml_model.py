@@ -5,8 +5,10 @@ from typing import List, Union
 
 from backend.core.messages import NO_VALID_PAYLOAD
 from backend.models.payload import DatabaseDataPayload
+from backend.utils.postprocessing.add_ents import add_custom_entities_to_doc
+from backend.utils.postprocessing.hide_data import hide_ents_in_doc
+from backend.utils.preprocessing.prepare_text import preprocess
 from backend.services.pd_generator import PersonalDataGenerator
-from backend.services.hide_data import hide_ents_in_doc
 
 MODELS_PATH = os.getenv("MODELS_PATH", "./backend/checkpoints/")
 DEFAULT_MODEL = os.getenv("SPACY_MODEL", "ru_core_news_md")
@@ -68,6 +70,9 @@ class SpacyModel:
         if payload.data is None:
             return {"personal_data": [], "text": "", "original_text": ""}
 
+        # Preprocess text
+        payload.data = preprocess(payload.data, remove_html_tags=remove_html)
+
         # Process text with the model
         doc = self.model(payload.data)
 
@@ -88,6 +93,7 @@ class SpacyModel:
             raise ValueError("Model not loaded")
         if not batch:
             raise ValueError(NO_VALID_PAYLOAD)
+        batch = [preprocess(text.data, remove_html_tags=remove_html) for text in batch]
         docs = self.model.pipe(batch)
         ents_list, txt_list = [], []
         for doc in docs:
@@ -108,6 +114,8 @@ class SpacyModel:
             checklist = 'DEFAULT'
         if use_base_model:
             pass
+        if use_rules:
+            spacy_doc = add_custom_entities_to_doc(spacy_doc, base_doc)
         ents = [(ent.start_char, ent.end_char, ent.label_, ent.text) for ent in spacy_doc.ents]
 
         if jsonify:

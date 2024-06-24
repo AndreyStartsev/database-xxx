@@ -28,6 +28,9 @@ async def get_model_status(request: Request) -> str:
             description="Check if the database is available.",
             include_in_schema=CONNECT_TO_DB)
 async def get_db_status(request: Request) -> str:
-    db = await request.app.state.pool.acquire()
-    await request.app.state.pool.release(db)
-    return "Database is available."
+    try:
+        db = await request.app.state.pool.acquire()
+        await request.app.state.pool.release(db)
+        return "Database is available."
+    except Exception as e:
+        return f"Database is not available: {e}"

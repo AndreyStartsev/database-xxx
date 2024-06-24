@@ -1,12 +1,12 @@
 from PIL import Image
 
 try:
-    im = Image.open("./images/logo2.png")
+    im = Image.open("./images/logo.jpg")
 except:
     im = "🤖"
 
 LOGO = im
-PAGE_CONFIG = dict(page_title="ner-demo",
+PAGE_CONFIG = dict(page_title="xxx-demo",
                    page_icon=LOGO,
                    layout="wide",
                    menu_items={

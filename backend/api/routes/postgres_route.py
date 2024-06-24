@@ -15,6 +15,7 @@ from loguru import logger
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
+from backend.core.db import connect_to_db_via_pool
 from backend.core.security import validate_db_request
 from backend.models.inference import ConfigNER, DatabaseDataPayload
 from backend.api.adapters.postgres_adapters.connector import (
@@ -25,6 +26,21 @@ from backend.api.adapters.postgres_adapters.connector import (
 
 router = APIRouter()
 executor = ThreadPoolExecutor()
+
+
+@router.get("/connect_to_db", name="connect_to_db",
+            description="Connect to the database.",
+            include_in_schema=True)
+async def connect_to_db(request: Request, postgres_connection_string: str = None):
+    await connect_to_db_via_pool(request, postgres_connection_string)
+    return JSONResponse(content={"message": "Connected to the database."}, status_code=200)
+
+
+@router.get("/show_database_url", name="show_database_url",
+            description="Show the database URL.",
+            include_in_schema=True)
+async def show_database_url(request: Request):
+    return JSONResponse(content={"database_url": request.app.state.database}, status_code=200)
 
 
 @router.get("/show_public_tables", name="show_public_tables",
@@ -54,7 +70,7 @@ async def show_public_tables(request: Request):
 
 @router.get("/show_head", name="show_head",
             description="Show some entries from a table in the database.",
-            include_in_schema=True)
+            include_in_schema=False)
 async def show_head(request: Request, table_name: str, limit: int = 10):
     try:
         async with request.app.state.pool.acquire() as connection:
@@ -100,10 +116,11 @@ async def test_postgres(request: Request,
             dependencies=[Depends(validate_db_request)])
 async def download_table(request: Request,
                          table_name: str = "emr_history",
-                         limit: int = 100):
+                         limit: int = 100,
+                         ):
     async with request.app.state.pool.acquire() as connection:
-        connector = PostgresqlConnector(connection)
-        data = await connector.get_entire_table_as_dataframe(table_name, limit=limit)
+            connector = PostgresqlConnector(connection)
+    data = await connector.get_entire_table_as_dataframe(table_name, limit=limit)
 
     buffer = io.StringIO()
     data.to_csv(buffer, index=False)
@@ -148,9 +165,9 @@ async def start_anonymization(params: AnonymizationParameters,
 
 
 @router.post("/start-analysis", name="start_analysis",
-                description="Start the analyzing process in the background.",
-                include_in_schema=True,
-                dependencies=[Depends(validate_db_request)])
+             description="Start the analyzing process in the background.",
+             include_in_schema=True,
+             dependencies=[Depends(validate_db_request)])
 async def start_analysis(params: AnalysisParameters,
                          request: Request, ):
     logger.info(f"Analyzing parameters: \033[1m{params}\033[0m")
@@ -158,6 +175,23 @@ async def start_analysis(params: AnalysisParameters,
     results = await analyze_data_task(params=params, request=request, job_id=job_id)
     # results = json.dumps(results, indent=4)
     return JSONResponse(content=results, status_code=200)
+
+
+@router.get("/move_anonymized_tables", name="move_anonymized_tables",
+            description="Move all anonymized tables to a separate schema.",
+            include_in_schema=False,
+            dependencies=[Depends(validate_db_request)])
+async def move_anonymized_tables(request: Request, new_schema: str = "anonymized"):
+    logger.info("Moving anonymized tables to a separate schema...")
+    try:
+        async with request.app.state.pool.acquire() as connection:
+            connector = PostgresqlConnector(connection)
+            await connector.move_tables_with_prefix(database_url=request.app.state.database, new_db=new_schema)
+            logger.info("Anonymized tables moved to a separate schema.")
+            return JSONResponse(content={"message": "Anonymized tables moved to a separate schema."}, status_code=200)
+    except Exception as e:
+        logger.error(f"Failed to move anonymized tables: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def log_job(job_id, params, message=""):
@@ -217,9 +251,11 @@ async def analyze_data_task(params: AnalysisParameters, request: Request = None,
 
     async with request.app.state.pool.acquire() as connection:
         connector = PostgresqlConnector(connection)
+        logger.info("Connector created.")
         tables = await connector.return_table_names()
+        logger.info(f"Tables found: {tables}")
         if not tables:
-            return JSONResponse(content={"error": "No tables found."}, status_code=404)
+            return {"error": "No tables found."}
 
         for table in tables:
             data_stream = connector.stream_data(table, chunk_size=1000)

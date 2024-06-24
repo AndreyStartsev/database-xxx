@@ -18,6 +18,9 @@ API_DB_KEY = os.getenv('API_DB_KEY', 'admin')
 
 ENDPOINT_ANALYSIS = '/api/postgres/start-analysis'
 ENDPOINT_ANONYMIZE = '/api/postgres/start-anonymization'
+ENDPOINT_MOVE_TABLES = '/api/postgres/move_anonymized_tables'
+ENDPOINT_CONNECT = '/api/postgres/connect_to_db'
+ENDPOINT_CHECK_CONNECTION = '/api/db_status'
 
 NER_DICT = {
     "PER": "Имена, фамилии, отчества",
@@ -40,6 +43,50 @@ def safe_eval(string):
     except json.JSONDecodeError as e:
         print(f"Error parsing string: {string} - {e}")
         return {}
+
+
+def _check_connection():
+    """
+    Check database connection
+    """
+    url = f"http://{API_HOST}:{API_PORT}{ENDPOINT_CHECK_CONNECTION}"
+    headers = {"accept": "application/json", "xxx": API_DB_KEY}
+    start = time()
+
+    try:
+        logger.info(f"API request: {url}")
+        res = requests.get(url=url, headers=headers)
+        logger.info(f"API response: {res.text}, time: {time() - start:.2f} sec")
+        return res.json()
+    except JSONDecodeError:
+        logger.error(f"JSONDecodeError: {res.text}")
+        return {"error": res.text}
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        return {"error": f"{e}"}
+
+
+def connect_database(connection_string: str):
+    """Connect to database"""
+    url = f"http://{API_HOST}:{API_PORT}{ENDPOINT_CONNECT}"
+    params = {
+        "postgres_connection_string": connection_string,
+    }
+
+    headers = {"accept": "application/json", "xxx": API_DB_KEY}
+    start = time()
+
+    try:
+        logger.info(f"API request: {url}")
+        res = requests.get(url=url, headers=headers, params=params)
+        logger.info(f"API response: {res.text}, time: {time() - start:.2f} sec")
+        return res.json()
+    except JSONDecodeError:
+        logger.error(f"JSONDecodeError: {res.text}")
+        return {"error": res.text}
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        return {"error": f"{e}"}
 
 
 def profile_database():
@@ -124,6 +171,28 @@ curl -X 'POST' \
     return job_ids
 
 
+def move_anonymized_tables(new_schema: str = "anonymized"):
+    """move anonymized tables to a new schema"""
+    url = f"http://{API_HOST}:{API_PORT}{ENDPOINT_MOVE_TABLES}"
+    headers = {"accept": "application/json", "xxx": API_DB_KEY}
+    params = {
+        "new_schema": new_schema,
+    }
+    start = time()
+
+    try:
+        logger.info(f"API request: {url}")
+        res = requests.get(url=url, headers=headers, params=params)
+        logger.info(f"API response: {res.text}, time: {time() - start:.2f} sec")
+        return res.json()
+    except JSONDecodeError:
+        logger.error(f"JSONDecodeError: {res.text}")
+        return {"error": res.text}
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        return {"error": f"{e}"}
+
+
 @auth_simple
 def main(admin=False):
     # component: RANDOM TEXT
@@ -132,24 +201,54 @@ def main(admin=False):
     col1t, col2t = st.columns((6, 4))
     with col2t:
         st_button_placeholder = st.empty()
-        debug = False # st.checkbox("Debug", key="debug", value=False, help="Debug mode")
+        debug = False  # st.checkbox("Debug", key="debug", value=False, help="Debug mode")
         st_result_placeholder = st.empty()
     with col1t:
-        st.markdown("[i] Перед анонимизацией необходимо проанализировать данные")
+        with st.form(key="connect_form"):
+            connection_string = st.text_input("Строка подключения к базе данных",
+                                              value="postgresql://postgres:postgres@postgres_db:5432/postgres",
+                                              help="Строка подключения к базе данных: "
+                                                   "postgresql://{user}:{password}@{host}:{port}/{database}")
+            st.write("Пример строки подключения: postgresql://{user}:{password}@{host}:{port}/{database}")
+            connect = st.form_submit_button("Подключиться к базе данных")
+
+        if "is_connected" not in st.session_state:
+            is_connected = _check_connection()
+        else:
+            is_connected = st.session_state["is_connected"]
+        connection_status = st.empty()
+        if connect:
+            # reset profiling results
+            st.session_state.pop("data_json", None)
+            is_connected = connect_database(connection_string)
+            if is_connected.get("error"):
+                connection_status.error("Ошибка подключения к базе данных")
+            else:
+                connection_status.success("Подключение к базе данных установлено")
+                is_connected = "Database is available."
+                st.session_state["is_connected"] = is_connected
+        if is_connected != "Database is available.":
+            connection_status.warning("Вы не подключены к базе данных. Подключитесь для анонимизации данных")
+            st.write(is_connected)
+
         show_all = st.checkbox("Показать все данные", key="show_all", value=False, help="Показать все таблицы")
 
     if st.session_state.get("data_json", None) is None or debug:
-        update = st_button_placeholder.button("Profiling", type="primary", disabled=False)
+        update = st_button_placeholder.button("Выполнить профилирование", type="primary", disabled=False)
+        st_result_placeholder.write("""Перед анонимизацией необходимо проанализировать данные
+        - при профилировании будет создан автоматический конфигурационный файл для анонимизации""")
         anonymize = False
     else:
         update = False
-        anonymize = st_button_placeholder.button("Anonymize", type="primary", disabled=False)
+        st_result_placeholder.write("""Данные проанализированы. Вы можете изменить автоматические настройки анонимизации. 
+        Для запуска анонимизации нажмите кнопку "Анонимизировать".""")
+        anonymize = st_button_placeholder.button("Анонимизировать", type="primary", disabled=False)
 
     # logic: RANDOM TEXT
     if update:
         st_result_placeholder.info("Загрузка...")
         data_json = profile_database()
-        st.write(data_json)
+        # st.write(data_json)
         if data_json.get("error"):
             st_result_placeholder.error(data_json["error"])
         elif not isinstance(data_json, dict):
@@ -158,6 +257,7 @@ def main(admin=False):
             st_result_placeholder.success("Готово!")
             st.session_state["data_json"] = data_json
 
+    col1t, col2t = st.columns((6, 4))
     with col1t:
         if st.session_state.get("data_json", None) is not None:
             data_json = st.session_state["data_json"]
@@ -281,7 +381,14 @@ def main(admin=False):
 
         with st.expander("Настройки анонимизации БД"):
             use_strategy = st.checkbox("Использовать стратегии анонимизации", value=True)
-            prefix = st.text_input("Префикс для новых таблиц", value="anonymized")
+            move_to_anonymized = st.checkbox("Переместить анонимизированные таблицы в отдельную схему", value=False)
+            st.write("При перемещении в новую схему, проверка таблиц на вкладке Results будет недоступна")
+            if move_to_anonymized:
+                new_schema = st.text_input("Название новой схемы", value="anonymized")
+                prefix = "anonymized"
+            else:
+                new_schema = None
+                prefix = st.text_input("Префикс для новых таблиц", value="anonymized", disabled=True)
 
         if st.session_state.get("data_json", None) is not None:
             config = {}
@@ -298,6 +405,7 @@ def main(admin=False):
                     config[table_name] = {
                         "columns": columns,
                         "strategy": columns_strategy,
+                        "new_schema": move_to_anonymized,
                         "prefix": prefix if prefix else "anonymized"
                     }
                     # st.info(f"Table: {table_name}, columns: {columns}")
@@ -316,3 +424,10 @@ def main(admin=False):
                     job_ids = anonymize_database(config)
                     st.write(job_ids)
                 st_result_placeholder.success("Готово!")
+                st.session_state["job_ids"] = job_ids
+                if move_to_anonymized:
+                    move_result = move_anonymized_tables(new_schema=new_schema)
+                    st_result_placeholder.info(move_result)
+                else:
+                    st.error(config.get("new_schema", False))
+                    st_result_placeholder.info("Таблицы не перемещены")

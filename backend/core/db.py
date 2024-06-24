@@ -23,6 +23,23 @@ async def connect_to_db(app: FastAPI) -> None:
         min_size=10,
         max_size=10,
     )
+    app.state.database = DATABASE_URL
+
+    logger.info("Connection established")
+
+
+async def connect_to_db_via_pool(request: Request, postgres_connection_string: str) -> None:
+    if not postgres_connection_string:
+        raise ValueError("Postgres connection string is required")
+
+    logger.info("Connecting to PostgreSQL via pool")
+
+    request.app.state.pool = await asyncpg.create_pool(
+        str(postgres_connection_string),
+        min_size=10,
+        max_size=10,
+    )
+    request.app.state.database = postgres_connection_string
 
     logger.info("Connection established")
 

@@ -58,9 +58,6 @@ services:
       DB_HOST: ${DB_HOST}
       DB_PORT: 5432
       DEBUG: ${DEBUG}
-      ORACLE_DNS: ${ORACLE_DNS}
-      ORACLE_USER: ${ORACLE_USER}
-      ORACLE_PASSWORD: ${ORACLE_PASSWORD}
     volumes:
 #      - ./backend/:/code/backend/ # mount the app folder to track changes
       - ./logs/:/code/logs/

@@ -19,13 +19,13 @@ class PersonalDataGenerator:
             if self._internal_data.get(s, {}).get(ent_type):
                 return self._internal_data[s][ent_type]
             elif self._internal_data.get(s):
-                self._internal_data[s][ent_type] = self._generate(ent_type)
+                self._internal_data[s][ent_type] = self._generate(ent_type, str(s))
                 return self._internal_data[s][ent_type]
             else:
-                self._internal_data[s] = {ent_type: self._generate(ent_type)}
+                self._internal_data[s] = {ent_type: self._generate(ent_type, str(s))}
                 return self._internal_data[s][ent_type]
 
-    def _generate(self, ent_type: str):
+    def _generate(self, ent_type: str, s: str = None):
         if ent_type == 'PER':
             random_gender = random.choice([Gender.MALE, Gender.FEMALE])
             return self.person.name(gender=random_gender)
@@ -38,7 +38,10 @@ class PersonalDataGenerator:
         elif ent_type == 'LOC':
             return self.generic.address.city()
         elif ent_type == 'SENSITIVE':
-            return self.generic.numeric.integer_number(start=10000000, end=99999999)
+            s = s.strip()
+            start = 1 * (10 ** (len(s) - 1))
+            end = 9 * (10 ** (len(s) - 1))
+            return self.generic.numeric.integer_number(start=start, end=end)
         elif ent_type == 'EMAIL':
             return self.generic.person.email()
         elif ent_type == 'PHONE':
@@ -52,7 +55,7 @@ class PersonalDataGenerator:
 if __name__ == "__main__":
     pd_gen = PersonalDataGenerator(consistency=True)
 
-    s1 = "PER1"
+    s1 = "1000000"
     s2 = "PER2"
 
     print(f"\n\033[096mGenerating for {s1}...\033[0m")

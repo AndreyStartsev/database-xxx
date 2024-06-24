@@ -1,4 +1,5 @@
 import os
+import asyncpg
 import pandas as pd
 from fastapi import HTTPException, Request
 from asyncpg import Connection
@@ -140,31 +141,31 @@ async def process_and_anonymize_chunk(chunk, columns, request, config, include_c
             chunk[column_name] = [request.app.state.model.pd_generator.generate(str(d), 'SENSITIVE')
                                   if d is not pd.isna(d)
                                   else request.app.state.model.pd_generator.generate("nan", 'SENSITIVE')
-                                  for d in range(len(chunk))]
+                                  for d in chunk[column_name]]
 
         elif anonymization_type == "name_generator":
             chunk[column_name] = [request.app.state.model.pd_generator.generate(str(d), 'PER')
-                                  for d in range(len(chunk))]
+                                  for d in chunk[column_name]]
 
         elif anonymization_type == "location_generator":
             chunk[column_name] = [request.app.state.model.pd_generator.generate(str(d), 'LOC')
-                                  for d in range(len(chunk))]
+                                  for d in chunk[column_name]]
 
         elif anonymization_type == "organization_generator":
             chunk[column_name] = [request.app.state.model.pd_generator.generate(str(d), 'ORG')
-                                  for d in range(len(chunk))]
+                                  for d in chunk[column_name]]
 
         elif anonymization_type == "email_generator":
             chunk[column_name] = [request.app.state.model.pd_generator.generate(str(d), 'EMAIL')
-                                  for d in range(len(chunk))]
+                                  for d in chunk[column_name]]
 
         elif anonymization_type == "phone_generator":
             chunk[column_name] = [request.app.state.model.pd_generator.generate(str(d), 'PHONE')
-                                  for d in range(len(chunk))]
+                                  for d in chunk[column_name]]
 
         elif anonymization_type == "url_generator":
             chunk[column_name] = [request.app.state.model.pd_generator.generate(str(d), 'URL')
-                                  for d in range(len(chunk))]
+                                  for d in chunk[column_name]]
 
         # if strategy by column was used - convert data to required type (e.g. int, float, str)
         if strategy_by_column and column_name in strategy_by_column:
@@ -220,6 +221,13 @@ class PostgresqlConnector:
         logger.info(f"\033[093mCreate table query: {create_table_query}\033[0m")
 
         await self.connection.execute(create_table_query)
+
+    async def create_database_if_not_exists(self, db_name: str):
+        try:
+            await self.connection.execute(f"CREATE DATABASE {db_name}")
+            logger.info(f"Database {db_name} created")
+        except Exception as e:
+            logger.error(f"Failed to create database {db_name}: {e}")
 
     async def insert_data_to_table(self, table_name: str, data: pd.DataFrame):
         def _replace_nan(vals, default_date="nan", default_int=0):
@@ -415,6 +423,7 @@ class PostgresqlConnector:
                                 is_text = _analyze_if_strategy_is_text(entities, chunk[col])
                                 if is_text:
                                     entities = entities + ['TEXT', ]
+                                    entities = [e for e in entities if e != 'DATE']  # remove DATE because of inc. type
                                 result[column_name] = {'ents': entities, 'type': 'text'}
 
                             # otherwise, just add the empty list and 'text' type
@@ -510,6 +519,90 @@ class PostgresqlConnector:
         columns = rows[0].keys()
         data = [dict(row) for row in rows]
         return pd.DataFrame(data, columns=columns)
+
+    async def move_tables_with_prefix(self, database_url: str, prefix: str = "anonymized_", new_db: str = None):
+        # Connect to the old database
+        old_connection = await asyncpg.connect(database_url)
+        old_db = database_url.rsplit('/', 1)[-1]
+        new_db = new_db or f"anonymized_{old_db}"
+        new_database_url = f"{database_url.rsplit('/', 1)[0]}/{new_db}"
+
+        # Create the new database if it does not exist
+        await self.create_database_if_not_exists(new_db)
+
+        # Get the table names with the given prefix
+        query = f"""
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name LIKE '{prefix}%'
+        """
+        tables = await old_connection.fetch(query)
+        table_names = [table['table_name'] for table in tables]
+
+        # Connect to the new database
+        new_connection = await asyncpg.connect(new_database_url)
+        new_db = "anonymized_" + old_db
+
+        # Move each table to the new database
+        for table_name in table_names:
+
+            # Dump the table data to a temporary file
+            temp_file_db = f"/var/log/postgresql/{table_name}.csv"
+            temp_file_os = f"/code/logs/{table_name}.csv"
+
+            # Dump the table data to a temporary file
+            dump_data_query = f"COPY {table_name} TO '{temp_file_db}' WITH CSV HEADER"
+            await old_connection.execute(dump_data_query)
+
+            # Remove the prefix from the table name
+            new_table_name = table_name[len(prefix):]
+
+            # Drop the table if it already exists
+            drop_table_query = f"DROP TABLE IF EXISTS {new_table_name} CASCADE"
+            try:
+                await new_connection.execute(drop_table_query)
+                logger.info(f"Table {new_table_name} dropped successfully.")
+            except Exception as e:
+                logger.error(f"Failed to drop table {new_table_name}: {e}")
+
+            # Extract the table schema from the original table
+            schema_query = f"""
+                    SELECT 'CREATE TABLE ' || quote_ident('{new_table_name}') || ' (' ||
+                        string_agg(column_def, ', ' ORDER BY ordinal_position) || ');'
+                    FROM (
+                        SELECT column_name || ' ' || data_type || coalesce('(' || character_maximum_length || ')', '') || 
+                            coalesce(' COLLATE ' || collation_name, '') || coalesce(' DEFAULT ' || column_default, '') || 
+                            case when is_nullable = 'YES' then '' else ' NOT NULL' end AS column_def,
+                            ordinal_position
+                        FROM information_schema.columns
+                        WHERE table_name = '{table_name}'
+                    ) AS columns;
+                    """
+            schema_result = await old_connection.fetchval(schema_query)
+            try:
+                await new_connection.execute(schema_result)
+                logger.info(f"Table {new_table_name} created successfully.")
+            except Exception as e:
+                logger.error(f"Failed to create table {new_table_name}: {e}")
+
+            # Load the data into the new database
+            load_data_query = f"COPY {new_table_name} FROM '{temp_file_db}' WITH CSV HEADER"
+            try:
+                await new_connection.execute(load_data_query)
+                logger.info(f"Data loaded into table {new_table_name} successfully.")
+            except Exception as e:
+                logger.error(f"Failed to load data into table {new_table_name}: {e}")
+
+            # Clean up the temporary file
+            os.remove(temp_file_os)
+
+            # Drop the old table
+            drop_table_query = f"DROP TABLE {old_db}.public.{table_name}"
+            await old_connection.execute(drop_table_query)
+
+        # Close connections
+        await old_connection.close()
+        await new_connection.close()
 
 
 def update_job_status(job_id, params, message):
