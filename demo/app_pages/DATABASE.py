@@ -322,6 +322,7 @@ def main(admin=False):
                         col_el_key = f"check_{table_name}_{col}"
                         options = st.session_state[table_name]['table_data'][col].get("ents", []) + ["SKIP", ]
                         options += [k for k in NER_DICT.keys() if k not in options]
+                        options = options + ["TEXT", ] if "TEXT" not in options else options
                         col_strategy = st.selectbox(f"{col}", options=options, key=col_el_key,
                                                     disabled=disabled)
 
