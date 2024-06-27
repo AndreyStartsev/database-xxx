@@ -272,6 +272,10 @@ def main(admin=False):
                 if table_name.startswith("anonymized"):
                     continue
 
+                if not isinstance(profiling_data, dict):
+                    st.text(f"Error: {table_name}: profiling data is {type(profiling_data)}: {profiling_data}")
+                    continue
+
                 st.markdown(f"### {table_name}")
 
                 if st.session_state.get(table_name, None) is None:
